@@ -33,14 +33,14 @@ func (client *TcpClient)StartClient(){
 func (handler *ClientHandler)HandleAccept(conn net.Conn) {
 	go func() {
 		for {
-			//utils.FuncNoError(handler.HandleRead, conn)
-			handler.HandleRead(conn)
+			utils.FuncNoError(handler.HandleRead, conn)
+			//handler.HandleRead(conn)
 		}
 	}()
 	go func() {
 		for {
-			//utils.FuncNoError(handler.HandleWrite, conn)
-			handler.HandleWrite(conn)
+			utils.FuncNoError(handler.HandleWrite, conn)
+			//handler.HandleWrite(conn)
 		}
 	}()
 }
