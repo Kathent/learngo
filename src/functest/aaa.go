@@ -34,11 +34,27 @@ type Printer interface {
 	PrintSomething(a string, b string) string
 }
 
+func NewClient() func() Printer{
+	var instance Printer
+	return func() Printer {
+		if instance == nil{
+			return new(PrintInst)
+		}
+		return instance
+	}
+}
+
 func main() {
 	//testReflect()
 	//testTcp()
-	var any Printer = PrintInst{}
-	fmt.Println(any == nil)
+	client := NewClient()()
+	fmt.Printf("%v \n", client)
+
+	client2 := NewClient()()
+	fmt.Printf("%v \n", client2)
+
+
+	fmt.Println(client == client2)
 }
 func testTcp() {
 	server := queuenet.NewServer("127.0.0.1:2222")
