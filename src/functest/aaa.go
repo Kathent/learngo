@@ -55,6 +55,17 @@ func main() {
 
 
 	fmt.Println(client == client2)
+
+
+	var fn  func(a int, b int) int = func(a int, b int) int {
+		return 1
+	}
+
+	makeFunc := reflect.MakeFunc(reflect.TypeOf(&fn).Elem(), func(args []reflect.Value) ([]reflect.Value) {
+		return []reflect.Value{reflect.ValueOf(2)}
+	})
+
+	fmt.Println(makeFunc.Call([]reflect.Value{reflect.ValueOf(0), reflect.ValueOf(0)})[0])
 }
 func testTcp() {
 	server := queuenet.NewServer("127.0.0.1:2222")
