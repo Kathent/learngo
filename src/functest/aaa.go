@@ -30,9 +30,15 @@ type MethodInvocation struct {
 	method reflect.Value
 }
 
+type Printer interface {
+	PrintSomething(a string, b string) string
+}
+
 func main() {
 	//testReflect()
-	testTcp()
+	//testTcp()
+	var any Printer = PrintInst{}
+	fmt.Println(any == nil)
 }
 func testTcp() {
 	server := queuenet.NewServer("127.0.0.1:2222")
