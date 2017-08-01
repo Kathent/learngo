@@ -6,6 +6,7 @@ import (
 	"utils"
 	"fmt"
 	"queuenet"
+	"github.com/jinzhu/configor"
 )
 
 
@@ -44,19 +45,41 @@ func NewClient() func() Printer{
 	}
 }
 
+var Config = struct {
+	APPName string `default:"app name"`
+
+	DB struct {
+		Name     string
+		User     string `default:"root"`
+		Password string `required:"true" env:"DBPassword"`
+		Port     uint   `default:"3306"`
+	}
+
+	Contacts []struct {
+		Name  string
+		Email string `required:"true"`
+	}
+}{}
+
 func main() {
 	//testReflect()
 	//testTcp()
+	//test11()
+
+	configor.Load(&Config, "config.yml")
+	fmt.Printf("config: %#v", Config)
+}
+
+func test11() {
 	client := NewClient()()
 	fmt.Printf("%v \n", client)
 
 	client2 := NewClient()()
 	fmt.Printf("%v \n", client2)
 
-
 	fmt.Println(client == client2)
 
-
+	fmt.Printf("%T, %#v %p %p\n", client, client, client, client2)
 	var fn  func(a int, b int) int = func(a int, b int) int {
 		return 1
 	}
@@ -67,6 +90,7 @@ func main() {
 
 	fmt.Println(makeFunc.Call([]reflect.Value{reflect.ValueOf(0), reflect.ValueOf(0)})[0])
 }
+
 func testTcp() {
 	server := queuenet.NewServer("127.0.0.1:2222")
 	client := queuenet.NewClient("127.0.0.1:2222")
