@@ -8,3 +8,6 @@
 *.xml
 bin/
 pkg/
+vendor/
+main/Godeps
+vendor/
