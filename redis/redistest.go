@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/go-redis/redis"
 	"fmt"
-	"utils"
+	"learngo/utils"
 )
 
 func main() {

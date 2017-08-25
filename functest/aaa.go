@@ -3,9 +3,9 @@ package main
 import (
 	"reflect"
 	"encoding/json"
-	"utils"
+	"learngo/utils"
 	"fmt"
-	"queuenet"
+	//"queuenet"
 	"github.com/jinzhu/configor"
 )
 
@@ -92,10 +92,10 @@ func test11() {
 }
 
 func testTcp() {
-	server := queuenet.NewServer("127.0.0.1:2222")
-	client := queuenet.NewClient("127.0.0.1:2222")
-	go server.StartServer()
-	go client.StartClient()
+	//server := queuenet.NewServer("127.0.0.1:2222")
+	//client := queuenet.NewClient("127.0.0.1:2222")
+	//go server.StartServer()
+	//go client.StartClient()
 
 	for true {
 

@@ -1,0 +1,12 @@
+package: learngo
+import:
+- package: github.com/coreos/etcd
+  version: ^3.2.6
+  subpackages:
+  - clientv3
+- package: github.com/go-redis/redis
+  version: ^6.5.7
+- package: github.com/golang/protobuf
+  subpackages:
+  - ptypes/timestamp
+- package: github.com/jinzhu/configor
