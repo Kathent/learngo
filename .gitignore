@@ -4,5 +4,7 @@
 .idea/modules.xml
 .idea/queueProject.iml
 .idea/workspace.xml
+*.iml
+*.xml
 bin/
 pkg/
