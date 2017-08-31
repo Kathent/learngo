@@ -1,6 +1,8 @@
 package connection_pool
 
-import "sync"
+import (
+	"sync"
+)
 
 type safeArray struct {
 	arr []interface{}
@@ -20,24 +22,30 @@ func newArray(size int) safeArray{
 	}
 }
 
+func (s *safeArray) len() int {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return len(s.arr)
+}
+
 func (s *safeArray) remove(val interface{}) (pre interface{}){
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	tmp := make([]interface{}, len(s.arr))
+	tmp := make([]interface{}, 0, len(s.arr))
 	index := 0
-	var res interface{}
 	for _, v := range s.arr{
 		if val != v {
-			tmp[index] = v
+			tmp = append(tmp, v)
 			index++
 		}else {
-			res = v
+			pre = v
 		}
 	}
 
 	s.arr = tmp
-	return res
+
+	return
 }
 
 func (s *safeArray) add(val interface{}) bool{
