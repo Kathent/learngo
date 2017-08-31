@@ -4,6 +4,10 @@
 .idea/modules.xml
 .idea/queueProject.iml
 .idea/workspace.xml
+*.iml
+*.xml
 bin/
 pkg/
-learngo.iml
+vendor/
+main/Godeps
+vendor/

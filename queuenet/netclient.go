@@ -2,7 +2,7 @@ package queuenet
 
 import (
 	"net"
-	"utils"
+	"learngo/utils"
 	"encoding/binary"
 	"fmt"
 	"bytes"

@@ -1,9 +1,8 @@
 package utils
 
 import (
-	"fmt"
 	"reflect"
-)
+	"fmt")
 
 func CheckError(i error) {
 	if i != nil {
