@@ -13,19 +13,29 @@ type poolContainer interface {
 	remove(val interface{}) (pre interface{})
 	add(val interface{}) bool
 	take() interface{}
+	len() int
 }
 
-func newArray(size int) safeArray{
-	return safeArray{
+func newArray(size int) *safeArray{
+	return &safeArray{
 		arr: make([]interface{}, 0, size),
 		lock: sync.RWMutex{},
 	}
 }
 
-func (s *safeArray) len() int {
+func (s *safeArray) len() int{
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	return len(s.arr)
+}
+
+func (s *safeArray)forEach(f func(interface{})){
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for _, val := range s.arr {
+		f(val)
+	}
 }
 
 func (s *safeArray) remove(val interface{}) (pre interface{}){
