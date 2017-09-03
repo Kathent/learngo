@@ -20,16 +20,34 @@ func Test_Poll_ZeroSize(t *testing.T){
 	assert.Nil(t, array.take())
 }
 
-func Test_Poll_Remove(t *testing.T){
-	array := newArray(100)
+func TestNewList_Add(t *testing.T) {
+	newList := NewList(0, nil)
+	assert.Equal(t, false, newList.add(1))
 
-	for i := 0; i < 100; i++ {
-		array.add(i)
-	}
+	newList = NewList(1, nil)
+	assert.Equal(t, true, newList.add(1))
+}
 
-	assert.Equal(t, false, array.add(1))
+func TestNewList_Take(t *testing.T) {
+	newList := NewList(2, nil)
 
-	for i := 0; i < 100; i++ {
-		assert.Equal(t, i, array.remove(i))
-	}
+	assert.Equal(t, nil, newList.take())
+
+	newVal := 1
+	newList.add(newVal)
+	assert.Equal(t, newVal, newList.take().(*node).data)
+}
+
+func TestNewList_Func(t *testing.T) {
+	newList := NewList(2, func(n1, n2 *node) bool {
+		return n1.data.(int) < n2.data.(int)
+	})
+
+	little := 1
+	big := 3
+	newList.add(big)
+	newList.add(little)
+
+	assert.Equal(t, little, newList.take().(*node).data)
+	assert.Equal(t, big, newList.take().(*node).data)
 }
