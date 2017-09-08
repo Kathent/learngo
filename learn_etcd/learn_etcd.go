@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/coreos/etcd/clientv3"
+	"log"
 )
 
 var cl *clientv3.Client
@@ -62,7 +63,7 @@ func LoadClient(addr string) error{
 }
 
 func LearnEtcd(){
-	err := LoadClient("192.168.96.140:2379")
+	err := LoadClient("192.168.96.131:2379")
 	if err != nil{
 		panic(err)
 	}
@@ -85,4 +86,54 @@ func LearnEtcd(){
 	}
 
 	fmt.Println(fmt.Sprintf("get value is...%v",val))
+
+	grant, grantErr := cl.Grant(context.Background(), 4)
+	if grantErr != nil {
+		panic(grantErr)
+	}
+
+	resp, respErr := cl.Put(context.Background(), "ttlKey", "ttlVal", clientv3.WithLease(grant.ID))
+	if respErr != nil {
+		panic(respErr)
+	}
+
+	log.Println(fmt.Sprintf("put resp %v", resp))
+
+	get, getErr := cl.Get(context.Background(), "ttlKey")
+	if getErr != nil {
+		panic(getErr)
+	}
+
+	log.Println(fmt.Sprintf("get resp %v", get))
+
+	_, onceErr := cl.KeepAliveOnce(context.Background(), grant.ID)
+	if onceErr != nil {
+		panic(onceErr)
+	}
+
+
+	get, getErr = cl.Get(context.Background(), "ttlKey")
+	if getErr != nil {
+		panic(getErr)
+	}
+	log.Println(fmt.Sprintf("get resp %v", get))
+
+
+	get, getErr = cl.Get(context.Background(), "ttlKey")
+	if getErr != nil {
+		panic(getErr)
+	}
+	log.Println(fmt.Sprintf("get resp %v", get))
+
+	alive, aliveErr := cl.KeepAlive(context.Background(), grant.ID)
+	if aliveErr != nil {
+		panic(aliveErr)
+	}
+
+	for true {
+		select {
+			case r :=<- alive:
+			log.Println("res", r)
+		}
+	}
 }
