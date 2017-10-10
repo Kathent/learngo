@@ -2,7 +2,8 @@ package main
 
 import (
 	//"rpc"
-	"learngo/learn_etcd"
+	//"learngo/learn_etcd"
+	"learngo/go-micro-learn"
 )
 
 
@@ -12,9 +13,6 @@ func main() {
 
 	//go rpc.AcceptRpc()
 	//go rpc.SendRpcClient()
-	go learn_etcd.LearnEtcd()
-
-	for true{
-
-	}
+	//learn_etcd.LearnEtcd()
+	go_micro_learn.StartServer()
 }
