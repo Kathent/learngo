@@ -6,12 +6,36 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"github.com/micro/go-plugins/registry/etcdv3"
+	registry2 "github.com/micro/go-micro/registry"
 )
 
 func StartClient(){
-	service := micro.NewService(micro.Name("new client"))
+	registry := etcdv3.NewRegistry(registry2.Addrs(ETCD_ADDR))
+	services, err := registry.GetService("hello")
 
-	greeter := proto.NewGreeterClient("greeter", service.Client())
+	if err != nil {
+		panic(err)
+	}
+
+	for _, s := range services {
+		log.Println(fmt.Sprintf("service:%+v len:%d", s, len(s.Nodes)))
+		for _, node := range s.Nodes{
+			fmt.Println(fmt.Sprintf("node :%v", node))
+		}
+
+		for _, ep := range s.Endpoints {
+			fmt.Println(fmt.Sprintf("ep :%v", ep))
+		}
+
+		for key, md := range s.Metadata{
+			fmt.Println(fmt.Sprintf("k:%s,v:%s", key, md))
+		}
+	}
+
+	service := micro.NewService(micro.Name("hello"), micro.Registry(registry))
+
+	greeter := proto.NewGreeterClient("hello", service.Client())
 
 	response, err := greeter.Hello(context.Background(), &proto.HelloRequest{Name: fmt.Sprintf("service:%d", &service)})
 	if err != nil {

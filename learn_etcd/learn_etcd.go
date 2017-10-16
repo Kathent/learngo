@@ -63,7 +63,7 @@ func LoadClient(addr string) error{
 }
 
 func LearnEtcd(){
-	err := LoadClient("192.168.1.4:2379")
+	err := LoadClient("192.168.96.140:2379")
 	if err != nil{
 		panic(err)
 	}
@@ -73,12 +73,12 @@ func LearnEtcd(){
 		Watch(key)
 	}()
 
-	delete, err := cl.Delete(context.Background(), "logic", clientv3.WithPrefix())
+	delete, err := cl.Delete(context.Background(), "*", clientv3.WithPrefix())
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(delete)
+	fmt.Println(fmt.Sprintf("delete is %+v", delete))
 	put, err := Put(key, "start")
 	if err != nil {
 		panic(err)
