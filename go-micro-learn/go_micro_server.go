@@ -27,7 +27,7 @@ func StartServer(){
 	service := micro.NewService(micro.Name("hello"),
 		micro.Version("latest"),
 		micro.Registry(registry),
-	    micro.RegisterTTL(time.Second * 3))
+	    micro.RegisterTTL(time.Second * 20))
 
 	service.Init()
 

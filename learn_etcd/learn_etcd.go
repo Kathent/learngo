@@ -68,23 +68,23 @@ func LearnEtcd(){
 		panic(err)
 	}
 
-	key := "etcd_learn_go"
+	key := "/micro-registry"
 	go func() {
 		Watch(key)
 	}()
 
-	delete, err := cl.Delete(context.Background(), "*", clientv3.WithPrefix())
+	delete, err := cl.Delete(context.Background(), key, clientv3.WithPrefix())
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println(fmt.Sprintf("delete is %+v", delete))
-	put, err := Put(key, "start")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(fmt.Sprintf("pre put val is ..%v", put))
+	//put, err := Put(key, "start")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//
+	//fmt.Println(fmt.Sprintf("pre put val is ..%v", put))
 
 	val, valErr := GetValue(key)
 	if valErr != nil{
