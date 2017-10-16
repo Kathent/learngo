@@ -8,6 +8,7 @@ import (
 	"log"
 	"github.com/micro/go-plugins/registry/etcdv3"
 	registry2 "github.com/micro/go-micro/registry"
+	"github.com/micro/go-plugins/client/grpc"
 )
 
 func StartClient(){
@@ -33,7 +34,7 @@ func StartClient(){
 		}
 	}
 
-	service := micro.NewService(micro.Name("hello"), micro.Registry(registry))
+	service := micro.NewService(micro.Client(grpc.NewClient()), micro.Name("hello"), micro.Registry(registry))
 
 	greeter := proto.NewGreeterClient("hello", service.Client())
 
