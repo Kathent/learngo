@@ -10,4 +10,6 @@ bin/
 pkg/
 vendor/
 main/Godeps
-vendor/
+.idea/dictionaries/
+.idea/inspectionProfiles/
+projectFilesBackup/
