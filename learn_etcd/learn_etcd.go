@@ -43,10 +43,14 @@ func Put(key string, val string) (interface{}, error){
 }
 
 func Watch(key string) {
-	watcher := cl.Watch(context.Background(), key)
+	watcher := cl.Watch(context.Background(), key, clientv3.WithPrefix())
 
 	for resp := range watcher{
-		fmt.Println(fmt.Sprintf("resp is.... %v", resp))
+		fmt.Println(fmt.Sprintf("resp is.... %+v", resp))
+
+		for _, v := range resp.Events{
+			fmt.Println(fmt.Sprintf("events %+v", v))
+		}
 	}
 }
 
@@ -68,7 +72,7 @@ func LearnEtcd(){
 		panic(err)
 	}
 
-	key := "/micro-registry"
+	key := "/micro-registry/TIMER/TIMER"
 	go func() {
 		Watch(key)
 	}()
@@ -136,10 +140,7 @@ func LearnEtcd(){
 	//	panic(aliveErr)
 	//}
 	//
-	//for true {
-	//	select {
-	//		case r :=<- alive:
-	//		log.Println("res", r)
-	//	}
-	//}
+	for {
+		time.Sleep(time.Second)
+	}
 }

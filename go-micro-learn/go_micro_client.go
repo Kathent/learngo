@@ -115,9 +115,9 @@ func StartGinClient(){
 		Expire: time.Now().Unix() + 100,
 		CallBack: "/hello",
 	}
-	req := client.NewRequest("TIMER", "/hello", obj)
+	req := client.NewRequest("TIMER", "/timer/NewTimer", obj)
 
-	res := JsonObj{}
+	var res string
 	err := service.Client().Call(context.TODO(), req, &res)
 	if err != nil {
 		panic(err)

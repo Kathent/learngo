@@ -2,8 +2,6 @@ package main
 
 import (
 	"learngo/go-micro-learn"
-	//"learngo/learn_etcd"
-	"time"
 )
 
 
@@ -14,12 +12,13 @@ func main() {
 	//go rpc.AcceptRpc()
 	//go rpc.SendRpcClient()
 	//learn_etcd.LearnEtcd()
-	go func() {
-		time.Sleep(time.Second * 5)
+	//go func() {
+	//learn_etcd.LearnEtcd()
+		//time.Sleep(time.Second * 5)
 		//go_micro_learn.StartClient()
 		go_micro_learn.StartGinClient()
-	}()
-	go_micro_learn.StartGinServer()
+	//}()
+	//go_micro_learn.StartGinServer()
 	//go_micro_learn.StartServer()
 	//go go_micro_learn.StartGrpcServer()
 	//time.Sleep(time.Second * 4)

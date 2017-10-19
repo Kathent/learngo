@@ -17,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 const(
-	ETCD_ADDR = "192.168.96.140:2379"
+	ETCD_ADDR = "192.168.1.4:2379"
 	GRPC_ADDR = "localhost:7777"
 )
 
