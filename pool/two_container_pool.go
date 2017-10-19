@@ -84,6 +84,7 @@ func (p *ClientPool) Take() (t interface{}){
 			select {
 			case ctx.Done():
 				p.usedCons.add(holder)
+				return
 			}
 		}
 	}
