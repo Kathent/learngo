@@ -1,38 +1,37 @@
 package pool
 
-type node struct {
-	next *node
-	data interface{}
-}
+import "sync"
 
-type sortList struct {
+type safeStackList struct {
 	head *node
 	length int
 	capacity int
 	compare func(data1, data2 interface{}) bool
+	sync.RWMutex
 }
-
-//func defaultCompare(data1, data2 interface{}) bool{
-//	return *(*uint64)(unsafe.Pointer(&data1)) < *(*uint64)(unsafe.Pointer(&data2))
-//}
 
 //NewList 新建safeList
 //size 容量
 //f 比较函数 值小的在list前面
-func NewList(capacity int, f func(data1, data2 interface{}) bool) *sortList {
-	tmp:= &sortList{}
+func NewSafeStackList(capacity int, f func(data1, data2 interface{}) bool) *safeStackList {
+	tmp:= &safeStackList{}
 	tmp.capacity = capacity
 	tmp.head = new(node)
 	tmp.compare = f
 	return tmp
 }
 
-func (s *sortList) add(val interface{}) bool {
+func (s *safeStackList) add(val interface{}) bool {
+	s.RLock()
 	length := s.length
 	capacity := s.capacity
+	s.RUnlock()
 	if length >= capacity {
 		return false
 	}
+
+	s.Lock()
+	defer s.Unlock()
 
 	if s.length >= s.capacity {
 		return false
@@ -50,17 +49,22 @@ func (s *sortList) add(val interface{}) bool {
 	return true
 }
 
-func (s *sortList) lLen() int {
+func (s *safeStackList) lLen() int {
+	s.RLock()
+	defer s.RUnlock()
 	return s.length
 }
 
-func (s *sortList) take() interface{} {
+func (s *safeStackList) take() interface{} {
 	if s.lLen() <= 0 {
 		return nil
 	}
 
+	s.Lock()
+	defer s.Unlock()
+
 	if s.length <= 0 {
-		return false
+		return nil
 	}
 
 	res := s.head.next
@@ -69,11 +73,16 @@ func (s *sortList) take() interface{} {
 	return res.data
 }
 
-func (s *sortList) cap() int{
+func (s *safeStackList) cap() int{
+	s.RLock()
+	defer s.RUnlock()
 	return s.capacity
 }
 
-func (s *sortList) remove(val interface{}) bool{
+func (s *safeStackList) remove(val interface{}) bool{
+	s.Lock()
+	defer s.Unlock()
+
 	tmpNext := s.head
 	for tmpNext != nil && tmpNext.next != nil && tmpNext.next.data != val{
 		tmpNext = tmpNext.next
@@ -81,8 +90,8 @@ func (s *sortList) remove(val interface{}) bool{
 
 	find := tmpNext.next != nil && tmpNext.next.data == val
 	if find {
-		tmpNext.next = tmpNext.next.next
 		s.length--
+		tmpNext.next = tmpNext.next.next
 	}
 	return find
 }

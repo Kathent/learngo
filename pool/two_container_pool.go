@@ -8,7 +8,7 @@ import (
 
 const(
 	CLIENT_POOL_MAX_IDLE_TIME 	= 120
-	CLIENT_POOL_MAX_TAKE_TIME 	= time.Second * 120
+	CLIENT_POOL_MAX_TAKE_TIME 	= time.Second * 10
 )
 
 type GenFactory func() *Holder
@@ -43,10 +43,10 @@ func MaxIdleTime(idleTime int) ConnOption{
 //compare 比较器
 //option 可选参数
 func NewConnPool(gen GenFactory, f func(data1, data2 interface{}) bool, option ...ConnOption) *ClientPool {
-	p := &ClientPool{freeCons: NewSafeSortList(math.MaxInt64, f),
-				     usedCons: NewSafeSortList(math.MaxInt64, nil),
+	p := &ClientPool{freeCons: NewSafeStackList(math.MaxInt64, f),
+				     usedCons: NewSafeStackList(math.MaxInt64, nil),
 						  gen: gen,
-			      maxIdleTime: OBJECT_POOL_MAX_IDLE_TIME}
+			      maxIdleTime: CLIENT_POOL_MAX_IDLE_TIME}
 
 	for _, op := range option{
 		op(p)
@@ -76,24 +76,34 @@ func (p *ClientPool)isValidObj(h *Holder) bool{
 
 //Take 取连接
 func (p *ClientPool) Take() (t interface{}){
-	timeOutFunc := func(holder *Holder) {
-		ctx, cancel := context.WithTimeout(context.Background(), CLIENT_POOL_MAX_TAKE_TIME)
-		holder.cl = cancel
-
-		for {
-			select {
-			case ctx.Done():
-				p.usedCons.add(holder)
-				return
-			}
-		}
-	}
-
 	defer func() {
-		if t != nil {
-			if h, ok := t.(*Holder) ; ok {
-				timeOutFunc(h)
-			}
+		if t == nil {
+			return
+		}
+
+		//无论是新生成的还是旧有的都要放入使用中列表中
+		p.usedCons.add(t)
+		if holder, ok := t.(*Holder) ; ok {
+			//做超期判断
+			ctx, cancel := context.WithTimeout(context.Background(), CLIENT_POOL_MAX_TAKE_TIME)
+			holder.cl = cancel
+			go func() {
+				for {
+					select {
+					case <- ctx.Done():
+						if dl, ok := ctx.Deadline(); ok {//超期了,还回去;
+							if dl.Before(time.Now()) {
+								//超期移除
+								if p.usedCons.remove(holder) {
+									//添加到空闲列表
+									p.freeCons.add(holder)
+								}
+							}
+						}
+						return
+					}
+				}
+			}()
 		}
 	}()
 
@@ -115,22 +125,26 @@ func (p *ClientPool) Take() (t interface{}){
 
 	//当前list为空,新建连接
 	t = p.gen()
-	p.usedCons.add(t)
 	return t
 }
 
 //Return 扔回连接池
 func (p *ClientPool) Return(val interface{}) bool{
 	if val != nil {
-		b := p.freeCons.add(val)
+		//从使用中列表删除
+		if p.usedCons.remove(val){
+			//删除成功 说明之前在使用中列表中,需要取消定时器
+			if h, ok := val.(*Holder) ; ok {
+				h.cl()
+			}
 
-		if h, ok := val.(*Holder) ; ok {
-			h.cl()
+			//加入空闲列表
+			b := p.freeCons.add(val)
+			return b
 		}
-		return b
 	}
 
-	return true
+	return false
 }
 
 

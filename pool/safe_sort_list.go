@@ -10,10 +10,6 @@ type safeSortList struct {
 	sync.RWMutex
 }
 
-//func defaultCompare(data1, data2 interface{}) bool{
-//	return *(*uint64)(unsafe.Pointer(&data1)) < *(*uint64)(unsafe.Pointer(&data2))
-//}
-
 //NewList 新建safeList
 //size 容量
 //f 比较函数 值小的在list前面
@@ -81,4 +77,21 @@ func (s *safeSortList) cap() int{
 	s.RLock()
 	defer s.RUnlock()
 	return s.capacity
+}
+
+func (s *safeSortList) remove(val interface{}) bool{
+	s.Lock()
+	defer s.Unlock()
+
+	tmpNext := s.head
+	for tmpNext != nil && tmpNext.next != nil && tmpNext.next.data != val{
+		tmpNext = tmpNext.next
+	}
+
+	find := tmpNext.next != nil && tmpNext.next.data == val
+	if find {
+		s.length--
+		tmpNext.next = tmpNext.next.next
+	}
+	return find
 }

@@ -18,6 +18,7 @@ type Container interface {
 	take() interface{}
 	lLen() int
 	cap() int
+	remove(val interface{}) bool
 }
 
 const(
