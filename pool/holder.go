@@ -25,10 +25,11 @@ func (h *Holder)Less(val *Holder) bool{
 
 //GetObj 获取实际对象 并更新访问时间
 func (h *Holder) GetObj() interface{}{
-	if h.obj != nil {
-		h.lastAccessed = time.Now().Unix()
-	}
 	return h.obj
+}
+
+func (h *Holder) updateAccess() {
+	h.lastAccessed = time.Now().Unix()
 }
 
 //NewHolder 对象holder struct
