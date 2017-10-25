@@ -1,0 +1,172 @@
+@startuml
+
+interface Service{
+    Init(Options)
+    Init(...Option)
+    Options() Options
+    Client() client.Client
+    Server() server.Server
+    Run() error
+    String() string
+}
+
+interface server.Server{
+    Options() server.Options
+    Init(...Option) error
+    Handle(Handler) error
+    NewHandler(interface{}, ...HandlerOption) Handler
+    NewSubscriber(string, interface{}, ...SubscriberOption) Subscriber
+    Subscribe(Subscriber) error
+    Register() error
+    Deregister() error
+    Start() error
+    Stop() error
+    String() string
+}
+
+interface client.Client{
+    Init(...Option) error
+    Options() client.Options
+    NewPublication(topic string, msg interface{}) Publication
+    NewRequest(service, method string, req interface{}, reqOpts ...RequestOption) Request
+    NewProtoRequest(service, method string, req interface{}, reqOpts ...RequestOption) Request
+    NewJsonRequest(service, method string, req interface{}, reqOpts ...RequestOption) Request
+    Call(ctx context.Context, req Request, rsp interface{}, opts ...CallOption) error
+    CallRemote(ctx context.Context, addr string, req Request, rsp interface{}, opts ...CallOption) error
+    Stream(ctx context.Context, req Request, opts ...CallOption) (Streamer, error)
+    StreamRemote(ctx context.Context, addr string, req Request, opts ...CallOption) (Streamer, error)
+    Publish(ctx context.Context, p Publication, opts ...PublishOption) error
+    String() string
+}
+
+interface registry.Registry{
+    Register(*Service, ...RegisterOption) error
+    Deregister(*Service) error
+    GetService(string) ([]*Service, error)
+    ListServices() ([]*Service, error)
+    Watch() (Watcher, error)
+    String() string
+}
+
+class service{
+    opts Options
+    once sync.Once
+}
+
+class Options{
+    Broker    broker.Broker
+    Cmd       cmd.Cmd
+    Client    client.Client
+    Server    server.Server
+    Registry  registry.Registry
+    Transport transport.Transport
+
+    // Register loop interval
+    RegisterInterval time.Duration
+
+    // Before and After funcs
+    BeforeStart []func() error
+    BeforeStop  []func() error
+    AfterStart  []func() error
+    AfterStop   []func() error
+
+    // Other options for implementations of the interface
+    // can be stored in a context
+    Context context.Context
+}
+
+class server.rpcServer{
+    rpc  *server
+    exit chan chan error
+
+    sync.RWMutex
+    opts        Options
+    handlers    map[string]Handler
+    subscribers map[*subscriber][]broker.Subscriber
+    // used for first registration
+    registered bool
+    // graceful exit
+    wg sync.WaitGroup
+}
+
+class server.server{
+    name         string
+    mu           sync.Mutex // protects the serviceMap
+    serviceMap   map[string]*service
+    reqLock      sync.Mutex // protects freeReq
+    freeReq      *request
+    respLock     sync.Mutex // protects freeResp
+    freeResp     *response
+    hdlrWrappers []HandlerWrapper
+}
+
+class client.rpcClient{
+    once sync.Once
+    opts client.Options
+    pool *pool
+}
+
+class client.Options{
+    // Used to select codec
+    ContentType string
+
+    // Plugged interfaces
+    Broker    broker.Broker
+    Codecs    map[string]codec.NewCodec
+    Registry  registry.Registry
+    Selector  selector.Selector
+    Transport transport.Transport
+
+    // Connection Pool
+    PoolSize int
+    PoolTTL  time.Duration
+
+    // Middleware for client
+    Wrappers []Wrapper
+
+    // Default Call Options
+    CallOptions CallOptions
+
+    // Other options for implementations of the interface
+    // can be stored in a context
+    Context context.Context
+}
+
+class server.Options{
+    Codecs       map[string]codec.NewCodec
+    Broker       broker.Broker
+    Registry     registry.Registry
+    Transport    transport.Transport
+    Metadata     map[string]string
+    Name         string
+    Address      string
+    Advertise    string
+    Id           string
+    Version      string
+    HdlrWrappers []HandlerWrapper
+    SubWrappers  []SubscriberWrapper
+
+    RegisterTTL time.Duration
+
+    // Debug Handler which can be set by a user
+    DebugHandler debug.DebugHandler
+
+    // Other options for implementations of the interface
+    // can be stored in a context
+    Context context.Context
+}
+
+
+
+service o-------- Options
+service <|------- Service
+server.rpcServer <|------- server.Server
+server.rpcServer *-------- server.server
+server.rpcClient <|------- client.Client
+
+Options o----- server.Server
+Options o----- client.Client
+Options o----- registry.Registry
+
+
+@enduml
