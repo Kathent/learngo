@@ -1,6 +1,8 @@
 package main
 
-import "learngo/dial_ss"
+import (
+	"learngo/mango_learn"
+)
 
 func main() {
 	//q := queue.New()
@@ -21,5 +23,6 @@ func main() {
 	//time.Sleep(time.Second * 4)
 	//go_micro_learn.StartGrcpClient()
 	//file_read_analysis.LoadFiles("load_file_dir", "2017-10-02 10:00:00", "2017-10-03 14:00:00")
-	dial_ss.Dial_ss()
+	//dial_ss.Dial_ss()
+	mango_learn.LearnMango()
 }
