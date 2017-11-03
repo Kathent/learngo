@@ -14,3 +14,4 @@ main/Godeps
 .idea/inspectionProfiles/
 projectFilesBackup/
 file_read_analysis/result.txt
+.project

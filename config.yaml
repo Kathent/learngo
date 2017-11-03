@@ -1,0 +1,52 @@
+#redis 配置192.168.96.140:6379
+db:
+  password:
+  addr:   192.168.96.140:6379
+  user: 
+  database: 1
+
+#排队系统配置
+server:
+  network: tcp
+  # 本地rpc server地址
+  addr: 127.0.0.1:8889
+  # 排队系统地址
+  remoteaddr: 127.0.0.1:7778
+
+#GRpc server端配置 (地址即本应用地址)
+rpcserver:
+  protocol: tcp
+  port: 7777
+  interfacename: 以太网
+
+#文件上传系统配置 (具体字段配置找庆波)
+oss:
+  accesskeyid: LTAIS5aXEgxaRBam
+  accesskeysecret: Vju7noTyDJlDaitBitERxsP0xlqAMt
+  bucketname: icsoc-im-files
+  action: http://%s.oss-cn-zhangjiakou.aliyuncs.com
+
+# 获取信息配置
+fetch:
+  # 根据IMid 获取用户头像等信息接口，北京方面提供, 联调时候会提供
+  fetchurl: http://127.0.0.1:8080/im/getUserInfo
+  fetchwechaturl: http://127.0.0.1:8002/userinfo?appid=%s&openid=%s
+
+# rabbitMQ配置信息
+rabbitmq:
+  addr: amqp://guest:guest@192.168.96.140:5672
+
+# 是否处于debug模式
+debugconfig:
+  debug: true
+
+
+etcd:
+  addr:
+  - 192.168.96.140:2379
+
+app:
+  appkey: 12345678asdf
+
+http:
+  addr: 1234
