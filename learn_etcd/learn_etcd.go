@@ -67,12 +67,12 @@ func LoadClient(addr string) error{
 }
 
 func LearnEtcd(){
-	err := LoadClient("192.168.1.4:2379")
+	err := LoadClient("192.168.96.140:2379")
 	if err != nil{
 		panic(err)
 	}
 
-	key := "/micro-registry/TIMER/TIMER"
+	key := "logic"
 	go func() {
 		Watch(key)
 	}()

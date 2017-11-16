@@ -1,6 +1,6 @@
 package main
 
-import "learngo/mgo"
+import "learngo/learn_etcd"
 
 func main() {
 	//q := queue.New()
@@ -8,7 +8,7 @@ func main() {
 
 	//go rpc.AcceptRpc()
 	//go rpc.SendRpcClient()
-	//learn_etcd.LearnEtcd()
+	learn_etcd.LearnEtcd()
 	//go func() {
 	//learn_etcd.LearnEtcd()
 		//time.Sleep(time.Second * 5)
@@ -21,7 +21,7 @@ func main() {
 	//time.Sleep(time.Second * 4)
 	//go_micro_learn.StartGrcpClient()
 	//file_read_analysis.LoadFiles("load_file_dir", "2017-10-02 10:00:00", "2017-10-03 14:00:00")
-	mgo.LearnMgo()
+	//mgo.LearnMgo()
 	//mgo.TryMongoDial()
 	//yml.LeanYml()
 }
