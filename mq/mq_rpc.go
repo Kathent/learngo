@@ -47,7 +47,8 @@ func (df *defaultPubFuture) GetWithContext(ctx context.Context) (interface{}, er
 }
 
 type PubRpc interface {
-	Publish(key string, body []byte) error
+	Publish(key string, body []byte) (*callBackInfo, error)
+	Process()
 }
 
 type publisher struct {
@@ -142,18 +143,18 @@ func (publisher *publisher) init() error{
 	return nil
 }
 
-func (publisher *publisher) Publish(key string, body []byte) error{
+func (publisher *publisher) Publish(key string, body []byte) (*callBackInfo,error){
 	inc := publisher.id.Inc()
 	corId := fmt.Sprintf("%d", inc)
 	pubErr := publisher.channel.Publish(publisher.Exchange, key, false, false,
 		amqp.Publishing{ReplyTo: publisher.ReplyTo, Body: body, CorrelationId: corId})
 	if pubErr != nil {
-		return pubErr
+		return nil, pubErr
 	}
 
-	cbi := callBackInfo{id: corId, df: defaultPubFuture{c: make(chan interface{})}}
+	cbi := &callBackInfo{id: corId, df: defaultPubFuture{c: make(chan interface{})}}
 	publisher.callBacks.Set(corId, cbi)
-	return nil
+	return cbi, nil
 }
 
 func (publisher *publisher) Process() {
@@ -184,6 +185,7 @@ func (publisher *publisher) Process() {
 				}
 			}
 		}else {
+			log4go.Warn("consume err:%+v", err)
 			time.Sleep(SLEEP_TIME)
 		}
 	}
@@ -192,7 +194,7 @@ func (publisher *publisher) dealMsg() {
 	for delivery := range publisher.msgChan{
 		if publisher.callBacks.Has(delivery.CorrelationId) {
 			if val, ok := publisher.callBacks.Get(delivery.CorrelationId); ok{
-				if cbi, ok := val.(callBackInfo); ok {
+				if cbi, ok := val.(*callBackInfo); ok {
 					go func() {
 						cbi.df.c <- delivery.Body
 					}()
@@ -203,7 +205,7 @@ func (publisher *publisher) dealMsg() {
 }
 
 func main(){
-	url := flag.String("Uri", "amqp://guest:guest@192.168.96.204:5672", "mq addr")
+	url := flag.String("Uri", "amqp://guest:guest@localhost:32769", "mq addr")
 	exchangeKey := flag.String("Exchange", "test-ex", "Exchange name")
 	exchangeType := flag.String("ExchangeType", "topic", "Exchange type")
 	queueName := flag.String("queueName", "test-queue", "queue name")
@@ -226,10 +228,22 @@ func main(){
 
 	pub := NewPublisher(*url, *exchangeKey, *exchangeType, *routeKey, *replyTo, amqp.Config{Heartbeat: 3 * time.Second,
 		Dial: func(network, addr string) (net.Conn, error) {
-			fmt.Println("dial", network, addr)
 			return net.DialTimeout(network, addr, 3 * time.Second)
 		}}, 20)
-	pub.Publish(*routeKey, []byte("Hello"))
+	go pub.Process()
+
+	go func() {
+		for {
+			time.Sleep(time.Second * 3)
+			publish, err := pub.Publish(*routeKey, []byte("Hello"))
+			if err != nil {
+				log4go.Warn(err)
+			}else {
+				val := <- publish.df.c
+				log4go.Info(fmt.Sprintf("val is:%+v, id:%s", val, publish.id))
+			}
+		}
+	}()
 
 	//go func() {
 	//	for {
@@ -247,11 +261,12 @@ func main(){
 }
 
 func customConsumer(url, queueName, exchangeKey, exchangeType, routeKey string){
+	time.Sleep(time.Second * 3)
 	fmt.Println("customConsumer", url, queueName, exchangeKey, exchangeType, routeKey)
 	consumer := rabbitmq.NewRabbitmqConsumer(url, exchangeKey, exchangeType, queueName, false,
 		1024, routeKey)
 	go consumer.Process()
 	for v := range consumer.Consume() {
-		fmt.Println("receive:" + string(v))
+		log4go.Info("receive:" + string(v))
 	}
 }
