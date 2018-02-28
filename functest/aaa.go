@@ -6,7 +6,7 @@ import (
 	"learngo/utils"
 	"fmt"
 	//"queuenet"
-	"github.com/jinzhu/configor"
+	//"github.com/jinzhu/configor"
 )
 
 
@@ -66,8 +66,8 @@ func main() {
 	//testTcp()
 	//test11()
 
-	configor.Load(&Config, "config.yml")
-	fmt.Printf("config: %#v", Config)
+	//configor.Load(&Config, "config.yml")
+	//fmt.Printf("config: %#v", Config)
 }
 
 func test11() {
@@ -91,16 +91,6 @@ func test11() {
 	fmt.Println(makeFunc.Call([]reflect.Value{reflect.ValueOf(0), reflect.ValueOf(0)})[0])
 }
 
-func testTcp() {
-	//server := queuenet.NewServer("127.0.0.1:2222")
-	//client := queuenet.NewClient("127.0.0.1:2222")
-	//go server.StartServer()
-	//go client.StartClient()
-
-	for true {
-
-	}
-}
 func testReflect() {
 	register(&PrintInst{})
 	var params = []Any{"a", "b"}

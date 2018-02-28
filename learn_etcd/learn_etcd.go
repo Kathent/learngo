@@ -67,7 +67,7 @@ func LoadClient(addr string) error{
 }
 
 func LearnEtcd(){
-	err := LoadClient("192.168.96.140:2379")
+	err := LoadClient("192.168.96.159:2379")
 	if err != nil{
 		panic(err)
 	}
@@ -90,12 +90,12 @@ func LearnEtcd(){
 	//
 	//fmt.Println(fmt.Sprintf("pre put val is ..%v", put))
 
-	val, valErr := GetValue(key)
-	if valErr != nil{
-		panic(valErr)
-	}
-
-	fmt.Println(fmt.Sprintf("get value is...%v",val))
+	//val, valErr := GetValue(key)
+	//if valErr != nil{
+	//	panic(valErr)
+	//}
+	//
+	//fmt.Println(fmt.Sprintf("get value is...%v",val))
 	//
 	//grant, grantErr := cl.Grant(context.Background(), 4)
 	//if grantErr != nil {
@@ -141,6 +141,6 @@ func LearnEtcd(){
 	//}
 	//
 	for {
-		time.Sleep(time.Second)
+		time.Sleep(20 * time.Second)
 	}
 }

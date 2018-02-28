@@ -4,7 +4,78 @@ import (
 	"fmt"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"time"
+	"reflect"
 )
+
+type timeStruct struct {
+	Date time.Time
+	Num int
+}
+
+type timeStruct1 struct {
+	Date time.Time
+	Num string
+}
+
+func LearnDate(){
+	session, err := mgo.Dial("192.168.96.159")
+	if err != nil {
+		panic(err)
+	}
+	session.SetSafe(&mgo.Safe{})
+
+	collection := session.DB("local").C("im_report_agent_work")
+
+	now := time.Now()
+	collection.Insert(&timeStruct{Date: now, Num: 11})
+
+	var newTime timeStruct1
+
+	collection.Find(bson.M{"date": bson.M{"$gte": now.Add(- time.Hour * 1)}}).One(&newTime)
+	fmt.Println(newTime)
+
+	//start, _ := time.Parse("20060101", "20171021")
+	//end, _ := time.Parse("20060101", "20171024")
+
+	pipe := collection.Pipe([]bson.M{{"$match": bson.M{"vcc_id": 310,
+		}},
+		{"$group":	bson.M{"_id": "$ag_id", "group_ids": bson.M{"$first": ""},
+			"online_secs": bson.M{"$sum":"$online_secs"},
+			"busy_secs": bson.M{"$sum": "$busy_secs"},
+			"in_session_num": bson.M{"$sum": "$in_session_num"},
+			"invalid_session_num": bson.M{"$sum": "$invalid_session_num"},
+			"receive_session_num": bson.M{"$sum": "$receive_session_num"},
+			"trans_in_session_num": bson.M{"$sum": "$trans_in_session_num"},
+			"trans_out_session_num": bson.M{"$sum": "trans_out_session_num"},
+			"reply_news_num": bson.M{"$sum": "reply_news_num"}},},
+		//{"$sort": bson.M{"ag_id": -1}},
+	})
+
+	var arr = make([]AgentWork, 0)
+	fmt.Println(reflect.ValueOf(&arr), reflect.ValueOf(&arr).Elem().Kind())
+	allErr := pipe.All(&arr)
+	if allErr != nil {
+		panic(allErr)
+	}
+
+	for _, v := range arr {
+		fmt.Println(fmt.Sprintf("%+v", v))
+	}
+}
+
+type AgentWork struct {
+	GroupId string  `json:"group_ids"`
+	WorkerId string  `json:"worker_id"`
+	OnlineSecs int64 `json:"online_secs"`
+	BusySecs int64 `json:"busy_secs"`
+	InSessionNum int `json:"in_session_num"`
+	InvalidSessionNum int  `json:"invalid_session_num"`
+	ReceiveSessionNUm int  `json:"receive_session_num"`
+	TransInSessionNum int  `json:"trans_in_session_num"`
+	TransOutSessionNum int  `json:"trans_out_session_num"`
+	ReplyNewsNum int  `json:"reply_news_num        "`
+}
 
 func LearnMgo() {
 	session, err := mgo.Dial("192.168.96.140")

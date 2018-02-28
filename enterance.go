@@ -8,9 +8,8 @@ func main() {
 
 	//go rpc.AcceptRpc()
 	//go rpc.SendRpcClient()
-	learn_etcd.LearnEtcd()
 	//go func() {
-	//learn_etcd.LearnEtcd()
+	learn_etcd.LearnEtcd()
 		//time.Sleep(time.Second * 5)
 		//go_micro_learn.StartClient()
 		//go_micro_learn.StartGinClient()
@@ -24,4 +23,5 @@ func main() {
 	//mgo.LearnMgo()
 	//mgo.TryMongoDial()
 	//yml.LeanYml()
+	//mgo.LearnDate()
 }
