@@ -7,7 +7,7 @@ import (
 	"net"
 	"icsoclib/rabbitmq"
 	"fmt"
-	"encoding/json"
+	//"encoding/json"
 	"github.com/alecthomas/log4go"
 	"go.uber.org/atomic"
 	"context"
@@ -209,33 +209,39 @@ func main(){
 	queueName := flag.String("queueName", "test-queue", "queue name")
 	routeKey := flag.String("RouteKey", "test-route", "route key")
 	replyTo := flag.String("ReplyTO", "callback-queue", "callback queue name")
-	pub := &publisher{Uri: *url, Config: amqp.Config{Heartbeat: 3 * time.Second,
-	Dial: func(network, addr string) (net.Conn, error) {
-		fmt.Println("dial", network, addr)
-		return net.DialTimeout(network, addr, 3 * time.Second)
-	}},
-	Exchange: *exchangeKey,
-	ExchangeType: *exchangeType,
-	RouteKey: *routeKey,
-	ReplyTo: *replyTo, }
+	//pub := &publisher{Uri: *url, Config: amqp.Config{Heartbeat: 3 * time.Second,
+	//Dial: func(network, addr string) (net.Conn, error) {
+	//	fmt.Println("dial", network, addr)
+	//	return net.DialTimeout(network, addr, 3 * time.Second)
+	//}},
+	//Exchange: *exchangeKey,
+	//ExchangeType: *exchangeType,
+	//RouteKey: *routeKey,
+	//ReplyTo: *replyTo, }
+	//
+	//initErr := pub.init()
+	//if initErr != nil {
+	//	fmt.Println(initErr)
+	//}
 
-	initErr := pub.init()
-	if initErr != nil {
-		fmt.Println(initErr)
-	}
+	pub := NewPublisher(*url, *exchangeKey, *exchangeType, *routeKey, *replyTo, amqp.Config{Heartbeat: 3 * time.Second,
+		Dial: func(network, addr string) (net.Conn, error) {
+			fmt.Println("dial", network, addr)
+			return net.DialTimeout(network, addr, 3 * time.Second)
+		}}, 20)
+	pub.Publish(*routeKey, []byte("Hello"))
 
-
-	go func() {
-		for {
-			time.Sleep(time.Second * 3)
-			msg := Message{MessageId: 1, Msg:"Hello"}
-			msgJson, _ := json.Marshal(msg)
-			err := pub.Publish(*routeKey, msgJson)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
-	}()
+	//go func() {
+	//	for {
+	//		time.Sleep(time.Second * 3)
+	//		msg := Message{MessageId: 1, Msg:"Hello"}
+	//		msgJson, _ := json.Marshal(msg)
+	//		err := pub.Publish(*routeKey, msgJson)
+	//		if err != nil {
+	//			fmt.Println(err)
+	//		}
+	//	}
+	//}()
 
 	customConsumer(*url, *queueName, *exchangeKey, *exchangeType, *routeKey)
 }
