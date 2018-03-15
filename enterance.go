@@ -1,6 +1,6 @@
 package main
 
-import "learngo/learn_etcd"
+import "learngo/go-micro-learn"
 
 func main() {
 	//q := queue.New()
@@ -9,7 +9,7 @@ func main() {
 	//go rpc.AcceptRpc()
 	//go rpc.SendRpcClient()
 	//go func() {
-	learn_etcd.LearnEtcd()
+	//learn_etcd.LearnEtcd()
 		//time.Sleep(time.Second * 5)
 		//go_micro_learn.StartClient()
 		//go_micro_learn.StartGinClient()
@@ -17,6 +17,7 @@ func main() {
 	//go_micro_learn.StartGinServer()
 	//go_micro_learn.StartServer()
 	//go go_micro_learn.StartGrpcServer()
+	go_micro_learn.StartHelloServer()
 	//time.Sleep(time.Second * 4)
 	//go_micro_learn.StartGrcpClient()
 	//file_read_analysis.LoadFiles("load_file_dir", "2017-10-02 10:00:00", "2017-10-03 14:00:00")
