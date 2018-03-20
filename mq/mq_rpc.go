@@ -1,21 +1,20 @@
 package main
 
 import (
-	"github.com/streadway/amqp"
-	"flag"
 	"time"
-	"net"
-	"icsoclib/rabbitmq"
-	"fmt"
-	//"encoding/json"
-	"github.com/alecthomas/log4go"
+	"github.com/streadway/amqp"
 	"go.uber.org/atomic"
-	"context"
 	"github.com/orcaman/concurrent-map"
+	"fmt"
+	"github.com/alecthomas/log4go"
+	"flag"
+	"net"
+	"context"
+	"encoding/json"
 )
 
 const (
-	SLEEP_TIME = time.Second * 2
+	SLEEP_TIME = time.Second * 1
 )
 
 type callBackInfo struct {
@@ -47,8 +46,7 @@ func (df *defaultPubFuture) GetWithContext(ctx context.Context) (interface{}, er
 }
 
 type PubRpc interface {
-	Publish(key string, body []byte) (*callBackInfo, error)
-	Process()
+	Publish(key string, body []byte) (PubFuture, error)
 }
 
 type publisher struct {
@@ -56,7 +54,6 @@ type publisher struct {
 	Config       amqp.Config
 	Exchange     string
 	ExchangeType string
-	RouteKey     string
 	ReplyTo 	 string
 	size 		 int
 
@@ -68,9 +65,12 @@ type publisher struct {
 	callBacks cmap.ConcurrentMap
 }
 
-func NewPublisher(uri, exchange, exchangeType, key, replyTo string, config amqp.Config, size int) PubRpc{
-	return &publisher{Uri: uri, Config: config, Exchange: exchange, ExchangeType: exchangeType,
-		RouteKey: key, ReplyTo: replyTo, size: size}
+func NewPublisher(uri, exchange, exchangeType string, replyTo string, config amqp.Config, size int) PubRpc{
+	pub := &publisher{Uri: uri, Config: config, Exchange: exchange, ExchangeType: exchangeType,
+		ReplyTo: replyTo, size: size}
+
+	go pub.process()
+	return pub
 }
 
 type Message struct {
@@ -85,10 +85,6 @@ func (publisher *publisher) close(){
 
 	if publisher.conn != nil {
 		publisher.channel.Close()
-	}
-
-	if publisher.errChan != nil {
-		close(publisher.errChan)
 	}
 
 	if publisher.msgChan != nil {
@@ -131,33 +127,31 @@ func (publisher *publisher) init() error{
 		return nil
 	}
 
-	queue, err := channel.QueueDeclare(publisher.ReplyTo, true, true, false, false, nil)
-	if err != nil {
-		return err
-	}
-
-	err = channel.QueueBind(queue.Name, publisher.RouteKey, publisher.Exchange, false, nil)
+	_, err = channel.QueueDeclare(publisher.ReplyTo, false, true, false, false, nil)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (publisher *publisher) Publish(key string, body []byte) (*callBackInfo,error){
+func (publisher *publisher) Publish(key string, body []byte) (PubFuture, error){
 	inc := publisher.id.Inc()
 	corId := fmt.Sprintf("%d", inc)
+	cbi := callBackInfo{id: corId, df: defaultPubFuture{c: make(chan interface{})}}
+	publisher.callBacks.Set(corId, cbi)
+
+	log4go.Info("prepared to publish.corId:%s", corId)
 	pubErr := publisher.channel.Publish(publisher.Exchange, key, false, false,
-		amqp.Publishing{ReplyTo: publisher.ReplyTo, Body: body, CorrelationId: corId})
+		amqp.Publishing{ReplyTo: publisher.ReplyTo, Body: body, CorrelationId: corId,
+			ContentType:"application/json"})
 	if pubErr != nil {
 		return nil, pubErr
 	}
 
-	cbi := &callBackInfo{id: corId, df: defaultPubFuture{c: make(chan interface{})}}
-	publisher.callBacks.Set(corId, cbi)
-	return cbi, nil
+	return &cbi.df, nil
 }
 
-func (publisher *publisher) Process() {
+func (publisher *publisher) process() {
 	for {
 		if err := publisher.init() ; err != nil {
 			log4go.Warn("init err:%+v", err)
@@ -180,32 +174,34 @@ func (publisher *publisher) Process() {
 				}
 
 				if needBreak {
+					log4go.Info("process needBreak")
 					publisher.close()
 					break
 				}
 			}
 		}else {
-			log4go.Warn("consume err:%+v", err)
+			log4go.Info("process sleep")
 			time.Sleep(SLEEP_TIME)
 		}
 	}
 }
+
 func (publisher *publisher) dealMsg() {
 	for delivery := range publisher.msgChan{
 		if publisher.callBacks.Has(delivery.CorrelationId) {
 			if val, ok := publisher.callBacks.Get(delivery.CorrelationId); ok{
-				if cbi, ok := val.(*callBackInfo); ok {
-					go func() {
-						cbi.df.c <- delivery.Body
-					}()
+				if cbi, ok := val.(callBackInfo); ok {
+					publisher.callBacks.Remove(delivery.CorrelationId)
+					cbi.df.c <- delivery.Body
 				}
 			}
 		}
 	}
 }
 
+
 func main(){
-	url := flag.String("Uri", "amqp://guest:guest@localhost:32769", "mq addr")
+	url := flag.String("Uri", "amqp://guest:guest@192.168.96.204:5672", "mq addr")
 	exchangeKey := flag.String("Exchange", "test-ex", "Exchange name")
 	exchangeType := flag.String("ExchangeType", "topic", "Exchange type")
 	queueName := flag.String("queueName", "test-queue", "queue name")
@@ -226,47 +222,86 @@ func main(){
 	//	fmt.Println(initErr)
 	//}
 
-	pub := NewPublisher(*url, *exchangeKey, *exchangeType, *routeKey, *replyTo, amqp.Config{Heartbeat: 3 * time.Second,
+	pub := NewPublisher(*url, *exchangeKey, *exchangeType, *replyTo, amqp.Config{Heartbeat: 3 * time.Second,
 		Dial: func(network, addr string) (net.Conn, error) {
+			fmt.Println("dial", network, addr)
 			return net.DialTimeout(network, addr, 3 * time.Second)
 		}}, 20)
-	go pub.Process()
+	// pub.Publish(*routeKey, []byte("Hello"))
 
-	go func() {
-		for {
-			time.Sleep(time.Second * 3)
-			publish, err := pub.Publish(*routeKey, []byte("Hello"))
-			if err != nil {
-				log4go.Warn(err)
-			}else {
-				val := <- publish.df.c
-				log4go.Info(fmt.Sprintf("val is:%+v, id:%s", val, publish.id))
-			}
+	go customConsumer(*url, *queueName, *exchangeKey, *exchangeType, *routeKey)
+
+	for {
+		time.Sleep(time.Second * 3)
+		msg := Message{MessageId: 1, Msg:"Hello"}
+		msgJson, _ := json.Marshal(msg)
+		pub, err := pub.Publish(*routeKey, msgJson)
+		if err != nil {
+			fmt.Println(err)
 		}
-	}()
 
-	//go func() {
-	//	for {
-	//		time.Sleep(time.Second * 3)
-	//		msg := Message{MessageId: 1, Msg:"Hello"}
-	//		msgJson, _ := json.Marshal(msg)
-	//		err := pub.Publish(*routeKey, msgJson)
-	//		if err != nil {
-	//			fmt.Println(err)
-	//		}
-	//	}
-	//}()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second * 2)
+		get, err := pub.GetWithContext(ctx)
+		if err != nil {
+			log4go.Warn("err:%v", err)
+		}
+		cancel()
 
-	customConsumer(*url, *queueName, *exchangeKey, *exchangeType, *routeKey)
+		log4go.Info("get is :%+v", get)
+	}
 }
 
 func customConsumer(url, queueName, exchangeKey, exchangeType, routeKey string){
-	time.Sleep(time.Second * 3)
 	fmt.Println("customConsumer", url, queueName, exchangeKey, exchangeType, routeKey)
-	consumer := rabbitmq.NewRabbitmqConsumer(url, exchangeKey, exchangeType, queueName, false,
-		1024, routeKey)
-	go consumer.Process()
-	for v := range consumer.Consume() {
-		log4go.Info("receive:" + string(v))
+
+	connection, err := amqp.DialConfig(url, amqp.Config{Dial: func(network, addr string) (net.Conn, error) {
+		return net.Dial(network, addr)
+	}, Heartbeat: SLEEP_TIME})
+
+	if err != nil {
+		panic(err)
 	}
+
+	channel, err := connection.Channel()
+	if err != nil {
+		panic(err)
+	}
+
+	err = channel.ExchangeDeclare(exchangeKey, amqp.ExchangeTopic, true, false,
+		false, false, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = channel.QueueDeclare(queueName, true, false, false, false, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	err = channel.QueueBind(queueName, routeKey, exchangeKey, false, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	deliveries, err := channel.Consume(queueName, "", false , false, false, false, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	count := 0x1
+	for d := range deliveries {
+		log4go.Info("receive msg: %s", string(d.Body))
+		count++
+		err := channel.Publish("", d.ReplyTo, false, false, amqp.Publishing{
+			CorrelationId: d.CorrelationId,
+			Body:          []byte{byte(count)},
+		})
+		if err != nil {
+			log4go.Warn("publish err:%v", err)
+		}
+
+		channel.Ack(d.DeliveryTag, false)
+	}
+
+	log4go.Info("end................")
 }
