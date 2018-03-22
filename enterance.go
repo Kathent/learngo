@@ -1,6 +1,6 @@
 package main
 
-import "learngo/go-micro-learn"
+import "learngo/gc-experiment"
 
 func main() {
 	//q := queue.New()
@@ -17,7 +17,7 @@ func main() {
 	//go_micro_learn.StartGinServer()
 	//go_micro_learn.StartServer()
 	//go go_micro_learn.StartGrpcServer()
-	go_micro_learn.StartHelloServer()
+	//go_micro_learn.StartHelloServer()
 	//time.Sleep(time.Second * 4)
 	//go_micro_learn.StartGrcpClient()
 	//file_read_analysis.LoadFiles("load_file_dir", "2017-10-02 10:00:00", "2017-10-03 14:00:00")
@@ -25,4 +25,5 @@ func main() {
 	//mgo.TryMongoDial()
 	//yml.LeanYml()
 	//mgo.LearnDate()
+	gc_experiment.GcLoop()
 }

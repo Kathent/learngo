@@ -283,7 +283,7 @@ func customConsumer(url, queueName, exchangeKey, exchangeType, routeKey string){
 		panic(err)
 	}
 
-	deliveries, err := channel.Consume(queueName, "", false , false, false, false, nil)
+	deliveries, err := channel.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {
 		panic(err)
 	}
