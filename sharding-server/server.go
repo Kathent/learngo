@@ -271,7 +271,15 @@ func NewMysqlHandShakePacket() *MysqlHandShakePacket{
 }
 
 func (MysqlHandShakeHandler) ConnectionActive(ctx *ConnectionHandlerContext) {
-	ctx.Write(MysqlHandShakePacket{})
+	packet := MysqlPacket{}
+	marshal, err := NewMysqlHandShakePacket().marshal()
+	if err != nil {
+		log4go.Warn("ConnectionActive err:%v", err)
+	}
+
+	packet.body = marshal
+	packet.length = len(marshal)
+	ctx.Write(packet)
 }
 
 func unmarshal(bts []byte) (*MysqlPacketHeader, error){
