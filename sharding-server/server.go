@@ -161,8 +161,32 @@ type ConnectionOutBoundHandler interface {
 	ConnectionWrite(ctx *ConnectionHandlerContext, obj interface{})
 }
 
+type BaseHandler struct {
+	ConnectionHandler
+}
+
+func (BaseHandler) HandlerAdded(*ConnectionHandlerContext) {
+
+}
+
+func (BaseHandler) HandlerRemoved(*ConnectionHandlerContext) {
+
+}
+
+func (BaseHandler) ErrCaught(*ConnectionHandler, error) {
+
+}
+
 type MysqlCodecs struct {
+	BaseInBoundHandler
+	BaseOutBoundHandler
+}
+
+type BaseInBoundHandler struct {
 	ConnectionInBoundHandler
+}
+
+type BaseOutBoundHandler struct {
 	ConnectionOutBoundHandler
 }
 
