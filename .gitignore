@@ -15,3 +15,7 @@ main/Godeps
 projectFilesBackup/
 file_read_analysis/result.txt
 .project
+.idea/httpRequests/
+learngo.exe
+profile.mprof
+profile_file
