@@ -49,22 +49,17 @@ type MysqlPacket struct {
 
 type Pipeline struct {
 	handlers *list.List
+	client *ServerClient
 }
 
 func (pipeline *Pipeline) HandleConnectionActive() {
-	front := pipeline.handlers.Front()
-	if front == nil {
-		return
-	}
-
-	if val, ok := front.Value.(*ConnectionHandlerContext); ok {
-		val.ConnectionActive()
-	}
+	pipeline.GetCtx().foundInBoundContext().ConnectionActive()
 }
 
 func (pipeline *Pipeline) AddHandler(handler ConnectionHandler) {
 	ctx := &ConnectionHandlerContext{}
 	ctx.handler = handler
+	ctx.client = pipeline.client
 
 	back := pipeline.handlers.Back()
 	if back == nil {
@@ -75,10 +70,14 @@ func (pipeline *Pipeline) AddHandler(handler ConnectionHandler) {
 		pipeline.handlers.PushBack(ctx)
 	}
 }
+
 func (pipeline *Pipeline) HandleMsgRead(buffer *bytes.Buffer) {
+	log4go.Info("HandleMsgRead enter....")
 	ctx := pipeline.GetCtx()
 	if ctx != nil {
 		ctx.ConnectionRead(buffer)
+	}else {
+		log4go.Info("HandleMsgRead ctx is nil....")
 	}
 }
 
@@ -95,13 +94,15 @@ type ConnectionHandlerContext struct {
 	handler ConnectionHandler
 	pre *ConnectionHandlerContext
 	next *ConnectionHandlerContext
-	client ServerClient
+	client *ServerClient
 }
 
 func (context *ConnectionHandlerContext) ConnectionActive() {
 	ctx := context.foundInBoundContext()
 	if ctx != nil {
 		ctx.handler.(ConnectionInBoundHandler).ConnectionActive(ctx)
+	}else {
+		log4go.Info("ConnectionActive no InBoundHandlerCtx found....")
 	}
 }
 
@@ -109,7 +110,7 @@ func (context *ConnectionHandlerContext) foundInBoundContext() *ConnectionHandle
 	var tmp *ConnectionHandlerContext
 	for tmp = context; tmp != nil ; {
 		if _, ok := tmp.handler.(ConnectionInBoundHandler); ok {
-			return context
+			return tmp
 		}else {
 			tmp = tmp.next
 		}
@@ -120,8 +121,8 @@ func (context *ConnectionHandlerContext) foundInBoundContext() *ConnectionHandle
 func (context *ConnectionHandlerContext) foundOutBoundContext() *ConnectionHandlerContext {
 	var tmp *ConnectionHandlerContext
 	for tmp = context; tmp != nil ; {
-		if _, ok := tmp.handler.(ConnectionInBoundHandler); ok {
-			return context
+		if _, ok := tmp.handler.(ConnectionOutBoundHandler); ok {
+			return tmp
 		}else {
 			tmp = tmp.pre
 		}
@@ -137,9 +138,12 @@ func (context *ConnectionHandlerContext) Write(packet interface{}) {
 }
 
 func (context *ConnectionHandlerContext) ConnectionRead(buffer interface{}) {
+	log4go.Info("ConnectionRead read enter...")
 	ctx := context.foundInBoundContext()
 	if ctx != nil {
 		ctx.handler.(ConnectionInBoundHandler).ConnectionRead(ctx, buffer)
+	}else {
+		log4go.Info("ConnectionRead ctx is nil...")
 	}
 }
 
@@ -150,14 +154,12 @@ type ConnectionHandler interface {
 }
 
 type ConnectionInBoundHandler interface {
-	ConnectionHandler
 	ConnectionActive(ctx *ConnectionHandlerContext)
 	ConnectionInActive(ctx *ConnectionHandlerContext)
 	ConnectionRead(ctx *ConnectionHandlerContext, obj interface{})
 }
 
 type ConnectionOutBoundHandler interface {
-	ConnectionHandler
 	ConnectionWrite(ctx *ConnectionHandlerContext, obj interface{})
 }
 
@@ -180,14 +182,31 @@ func (BaseHandler) ErrCaught(*ConnectionHandler, error) {
 type MysqlCodecs struct {
 	BaseInBoundHandler
 	BaseOutBoundHandler
+	BaseHandler
 }
 
 type BaseInBoundHandler struct {
 	ConnectionInBoundHandler
 }
 
+func (*BaseInBoundHandler) ConnectionActive(ctx *ConnectionHandlerContext){
+	ctx.next.ConnectionActive()
+}
+
+func (*BaseInBoundHandler) ConnectionInActive(ctx *ConnectionHandlerContext){
+	ctx.next.ConnectionActive()
+}
+
+func (*BaseInBoundHandler) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{}){
+	ctx.next.ConnectionRead(obj)
+}
+
 type BaseOutBoundHandler struct {
 	ConnectionOutBoundHandler
+}
+
+func (*BaseOutBoundHandler) ConnectionWrite(ctx *ConnectionHandlerContext, obj interface{}){
+
 }
 
 func (*MysqlCodecs) ConnectionWrite(ctx *ConnectionHandlerContext, obj interface{}) {
@@ -197,6 +216,7 @@ func (*MysqlCodecs) ConnectionWrite(ctx *ConnectionHandlerContext, obj interface
 }
 
 func (*MysqlCodecs) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{}) {
+	log4go.Info("ConnectionRead read val:%+v", obj)
 	if val, ok := obj.(*bytes.Buffer); ok {
 		bts := make([]byte, HEAD_PAYLOAD_LEN + HEAD_SEQ_LEN)
 
@@ -217,6 +237,7 @@ func (*MysqlCodecs) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{
 			return
 		}
 
+		log4go.Info("ConnectionRead read header %+v", header)
 		bodyBts := make([]byte, header.length)
 		n, err = val.Read(bodyBts)
 		if err != nil {
@@ -239,7 +260,41 @@ func (*MysqlCodecs) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{
 }
 
 type MysqlHandShakeHandler struct {
-	ConnectionInBoundHandler
+	BaseInBoundHandler
+	BaseHandler
+}
+
+type MysqlPacketHandler struct {
+	BaseInBoundHandler
+	BaseHandler
+}
+
+func (*MysqlPacketHandler) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{}) {
+	if val, ok := obj.(*MysqlPacket); ok {
+		buf := bytes.NewBuffer(val.body)
+		commandBts := make([]byte, 1)
+		n, err := buf.Read(commandBts)
+		if err != nil {
+			log4go.Info("ConnectionRead read command err:%v", err)
+			return
+		}
+
+		if n < 1 {
+			log4go.Info("ConnectionRead read command length wrong.")
+			return
+		}
+
+		factory := PacketFactory(commandBts[0])
+		packets, err := factory.Execute()
+		if err != nil {
+			log4go.Info("ConnectionRead execute err: %v", err)
+			return
+		}
+
+		for _, v := range packets {
+			ctx.Write(v)
+		}
+	}
 }
 
 type AuthPluginData struct {
@@ -248,54 +303,9 @@ type AuthPluginData struct {
 	authPluginData []byte
 }
 
-type MysqlHandShakePacket struct {
-	protoVersion int
-	serverVersion string
-	capabilityFlagsLower int
-	characterSet int
-	statusFlag int
-	capabilityFlagsUpper int
-	connectionId int
-	authPluginData AuthPluginData
-}
-
-func (packet *MysqlHandShakePacket) marshal() ([]byte, error) {
-	res := make([]byte, 0)
-	res = append(res, byte(packet.protoVersion))
-	res = append(res, utils.GetStringNul(packet.serverVersion)...)
-	res = append(res, byte(0))
-	res = append(res, utils.GetByte4(packet.connectionId)...)
-	res = append(res, utils.GetStringNul(string(packet.authPluginData.authPluginDataPart1))...)
-	res = append(res, utils.GetByte2(packet.capabilityFlagsLower)...)
-	res = append(res, byte(packet.characterSet))
-	res = append(res, utils.GetByte2(packet.statusFlag)...)
-	res = append(res, utils.GetByte2(packet.capabilityFlagsUpper)...)
-	res = append(res, byte(0))
-	res = append(res, []byte{0,0,0,0,0,0,0,0}...)
-	res = append(res, utils.GetStringNul(string(packet.authPluginData.authPluginDataPart2))...)
-
-	return res, nil
-}
-
-func NewMysqlHandShakePacket() *MysqlHandShakePacket{
-	return &MysqlHandShakePacket{
-		protoVersion: 0x0A,
-		serverVersion: "5.5.59-Sharding-Proxy 2.1.0",
-		capabilityFlagsLower: 0x1 | 0x2 | 0x4 | 0x8 | 0x40 | 0x100 | 0x200 | 0x400 | 0x1000 | 0x2000 | 0x8000,
-		characterSet: 0x21,
-		statusFlag: 0x2,
-		capabilityFlagsUpper: 0,
-		connectionId: 0,
-		authPluginData: AuthPluginData{
-			authPluginDataPart1: []byte{0,0,0,0,0,0,0,0},
-			authPluginDataPart2: []byte{0,0,0,0,0,0,0,0,0,0,0,0},
-			authPluginData: []byte{0, 0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-		},
-	}
-}
-
-func (MysqlHandShakeHandler) ConnectionActive(ctx *ConnectionHandlerContext) {
-	packet := MysqlPacket{}
+func (*MysqlHandShakeHandler) ConnectionActive(ctx *ConnectionHandlerContext) {
+	log4go.Info("MysqlHandShakeHandler ConnectionActive...")
+	packet := NewMysqlPacket()
 	marshal, err := NewMysqlHandShakePacket().marshal()
 	if err != nil {
 		log4go.Warn("ConnectionActive err:%v", err)
@@ -304,6 +314,13 @@ func (MysqlHandShakeHandler) ConnectionActive(ctx *ConnectionHandlerContext) {
 	packet.body = marshal
 	packet.length = len(marshal)
 	ctx.Write(packet)
+}
+
+func NewMysqlPacket() *MysqlPacket {
+	return &MysqlPacket{
+		&MysqlPacketHeader{},
+		nil,
+	}
 }
 
 func unmarshal(bts []byte) (*MysqlPacketHeader, error){
@@ -324,33 +341,31 @@ type ServerSession struct {
 }
 
 func read(r *bufio.Reader, size int) ([]byte, error){
-	idx := 0
+	log4go.Info("read size:%d", size)
 	buf := make([]byte, size)
-	for {
-		n, err := r.Read(buf[idx:])
-		if err != nil {
-			return nil, err
-		}
-		log4go.Info("read n:%d", n)
+	n, err := r.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	log4go.Info("read n:%d", n)
 
-		if n < size {
-			idx += n
-		}else {
-			break
-		}
+	if n <= size {
+		return buf[:n], nil
 	}
 
 	return buf, nil
 }
 
 func (session *ServerSession) readPacket() {
-	var readBytes = 1024
+	var readBytes = 10240
 	for {
 		bts, err := read(session.rb, readBytes)
 		if err != nil {
 			log4go.Info("readPacket err:%v", err)
 			session.close()
 			break
+		}else {
+			log4go.Info("readPacket read packet len:%d", len(bts))
 		}
 
 		session.FireConnectionReadMsg(bytes.NewBuffer(bts))
@@ -358,9 +373,12 @@ func (session *ServerSession) readPacket() {
 }
 
 func (session *ServerSession) writePacket() {
-	// for val := range session.writeCh{
-	//
-	// }
+	for val := range session.writeCh{
+		session.wb.Write(utils.GetByte3(len(val.body)))
+		session.wb.WriteByte(byte(val.seq))
+		session.wb.Write(val.body)
+		session.wb.Flush()
+	}
 }
 
 func (session *ServerSession) close() {
@@ -373,6 +391,7 @@ func (session *ServerSession) close() {
 func (session *ServerSession) dispatchCommand() {
 
 }
+
 func (session *ServerSession) FireConnectionReadMsg(buffer *bytes.Buffer) {
 	session.pipe.HandleMsgRead(buffer)
 }
@@ -386,8 +405,8 @@ func (client ServerClient) start() {
 	client.ss.pipe.HandleConnectionActive()
 }
 
-func NewServerClient(conn *net.TCPConn, pipe *Pipeline) *ServerClient{
-	session := NewServerSession(conn, pipe)
+func NewServerClient(conn *net.TCPConn) *ServerClient{
+	session := NewServerSession(conn)
 	sc := ServerClient{
 		conn: conn,
 		ss: session,
@@ -396,14 +415,13 @@ func NewServerClient(conn *net.TCPConn, pipe *Pipeline) *ServerClient{
 	return &sc
 }
 
-func NewServerSession(conn *net.TCPConn, pipe *Pipeline) *ServerSession {
+func NewServerSession(conn *net.TCPConn) *ServerSession {
 	ss := ServerSession{
 		conn: conn,
 		rb: bufio.NewReaderSize(conn, READ_BUF_SIZE),
 		wb: bufio.NewWriterSize(conn, READ_BUF_SIZE),
 		readCh: make(chan *MysqlPacket, 1000),
 		writeCh: make(chan *MysqlPacket, 1000),
-		pipe: pipe,
 	}
 	return &ss
 }
@@ -422,7 +440,7 @@ func (server *Server) Start() {
 		select {
 		case <- server.closeChan:
 			server.Close()
-		case <- server.maxConnChan:
+		case server.maxConnChan <- 1:
 			conn, err := listener.AcceptTCP()
 			if err != nil {
 				server.closeChan <- 1
@@ -439,33 +457,44 @@ func (server *Server) Close() {
 }
 
 func (server *Server) handleConn(conn *net.TCPConn) {
-	pipe := NewPipeline()
+	log4go.Info("Server handleConn....conn:%+v", conn)
+	client := NewServerClient(conn)
+	pipe := NewPipeline(client)
+	client.ss.pipe = pipe
 	server.handlerOp(pipe)
-	NewServerClient(conn, pipe).start()
+	client.start()
 }
 
 type HeadHandler struct{
-	ConnectionInBoundHandler
+	BaseInBoundHandler
 }
 
+func (*HeadHandler) HandlerAdded(*ConnectionHandlerContext){}
+func (*HeadHandler)  HandlerRemoved(*ConnectionHandlerContext) {}
+func (*HeadHandler) ErrCaught(*ConnectionHandler, error) {}
+
 func (headHandler *HeadHandler) ConnectionActive(ctx *ConnectionHandlerContext) {
+	log4go.Info("HeadHandler ConnectionActive enter...")
 	go ctx.client.ss.readPacket()
 	go ctx.client.ss.writePacket()
-	if ctx.next != nil {
-		ctx.next.ConnectionActive()
-	}
+	ctx.next.ConnectionActive()
 }
 
 type TailHandler struct {
-	ConnectionOutBoundHandler
+	BaseOutBoundHandler
 }
 
-func NewPipeline() *Pipeline {
+func (*TailHandler) HandlerAdded(*ConnectionHandlerContext){}
+func (*TailHandler)  HandlerRemoved(*ConnectionHandlerContext) {}
+func (*TailHandler) ErrCaught(*ConnectionHandler, error) {}
+
+func NewPipeline(client *ServerClient) *Pipeline {
 	var pipe = Pipeline{
 		handlers: list.New(),
+		client: client,
 	}
-	pipe.AddHandler(HeadHandler{})
-	pipe.AddHandler(TailHandler{})
+	pipe.AddHandler(&HeadHandler{})
+	pipe.AddHandler(&TailHandler{})
 
 	return &pipe
 }
@@ -477,7 +506,8 @@ func (server *Server) HandleOp(f func(pipeline *Pipeline)) *Server{
 
 func Init() {
 	NewServer(100).HandleOp(func(pipeline *Pipeline){
-		pipeline.AddHandler(MysqlCodecs{})
-		pipeline.AddHandler(MysqlHandShakeHandler{})
+		pipeline.AddHandler(&MysqlCodecs{BaseInBoundHandler{}, BaseOutBoundHandler{}, BaseHandler{}})
+		pipeline.AddHandler(&MysqlHandShakeHandler{BaseInBoundHandler{}, BaseHandler{}})
+		pipeline.AddHandler(&MysqlPacketHandler{BaseInBoundHandler{}, BaseHandler{}})
 	}).Start()
 }
