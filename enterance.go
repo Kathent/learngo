@@ -26,5 +26,6 @@ func main() {
 	//yml.LeanYml()
 	//mgo.LearnDate()
 	//gc_experiment.GcLoop()
+	sharding_server.InitDb()
 	sharding_server.Init()
 }

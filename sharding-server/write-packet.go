@@ -51,6 +51,9 @@ func NewMysqlErrorPacket(seq int, errCode int, stateMarker string,
 		errorMessage:   msg,
 	}
 
+	packet.BaseMysqlWritePacket = &BaseMysqlWritePacket{}
+	packet.BaseMysqlWritePacket.MysqlPacketHeader = &MysqlPacketHeader{}
+
 	packet.seq = seq
 	return packet
 }
@@ -145,4 +148,56 @@ func NewMysqlHandShakePacket() *MysqlHandShakePacket{
 			authPluginData: []byte{0, 0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
 		},
 	}
+}
+
+type ColumnDefinition41Packet struct {
+	*BaseMysqlWritePacket
+	catalog 		string
+	nextLength 		int
+	characterSet 	int
+	flags 			int
+	schema       	string
+	table        	string
+	orgTable     	string
+	name         	string
+	orgName      	string
+	columnLength 	int
+	columnType   	int
+	decimals     	int
+	*MysqlPacketHeader
+}
+
+func NewColumnDefinition41Packet(seq int, schema, table, orgTable, name,
+	orgName string, colLen int, colType int, decimals int) *ColumnDefinition41Packet{
+	packet := &ColumnDefinition41Packet{
+		schema:       schema,
+		table:        table,
+		orgTable:     orgTable,
+		name:         name,
+		orgName:      orgName,
+		columnLength: colLen,
+		columnType:   colType,
+		decimals:     decimals,
+	}
+
+	packet.seq = seq
+	return packet
+}
+
+func (packet *ColumnDefinition41Packet) marshal() ([]byte, error) {
+	bts := make([]byte, 0)
+	bts = append(bts, utils.GetStringLenBts("def")...)
+	bts = append(bts, utils.GetStringLenBts(packet.schema)...)
+	bts = append(bts, utils.GetStringLenBts(packet.table)...)
+	bts = append(bts, utils.GetStringLenBts(packet.orgTable)...)
+	bts = append(bts, utils.GetStringLenBts(packet.name)...)
+	bts = append(bts, utils.GetStringLenBts(packet.orgName)...)
+	bts = append(bts, utils.GetLongToInt(int64(0x0c))...)
+	bts = append(bts, utils.GetByte2(0x21)...)
+	bts = append(bts, utils.GetByte4(packet.columnLength)...)
+	bts = append(bts, byte(packet.columnType))
+	bts = append(bts, utils.GetByte2(0)...)
+	bts = append(bts, byte(packet.decimals))
+	bts = append(bts, 0, 0)
+	return bts, nil
 }

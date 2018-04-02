@@ -64,3 +64,15 @@ func GetLongToInt(val int64) []byte {
 	bts = append(bts, GetByte8(val)...)
 	return bts
 }
+
+func GetStringLenBts(val string) []byte {
+	res := make([]byte, 0)
+	if len(val) <= 0 {
+		res = append(res, 0)
+		return res
+	}
+
+	res = append(res, GetLongToInt(int64(len(val)))...)
+	res = append(res, []byte(val)...)
+	return res
+}

@@ -198,6 +198,11 @@ func (*BaseInBoundHandler) ConnectionInActive(ctx *ConnectionHandlerContext){
 }
 
 func (*BaseInBoundHandler) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{}){
+	defer func() {
+		if err := recover(); err != nil {
+			log4go.Error(err)
+		}
+	}()
 	ctx.next.ConnectionRead(obj)
 }
 
@@ -254,7 +259,7 @@ func (*MysqlCodecs) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{
 		log4go.Info("readPacket packet:%+v", packet)
 
 		if ctx.next != nil {
-			ctx.next.ConnectionRead(packet)
+			ctx.next.ConnectionRead(&packet)
 		}
 	}
 }
@@ -270,6 +275,7 @@ type MysqlPacketHandler struct {
 }
 
 func (*MysqlPacketHandler) ConnectionRead(ctx *ConnectionHandlerContext, obj interface{}) {
+	log4go.Info("MysqlPacketHandler ConnectionRead enter...obj:%+v", obj)
 	if val, ok := obj.(*MysqlPacket); ok {
 		buf := bytes.NewBuffer(val.body)
 		commandBts := make([]byte, 1)
