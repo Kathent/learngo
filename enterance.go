@@ -1,6 +1,6 @@
 package main
 
-import "learngo/sharding-server"
+import "learngo/gc-experiment"
 
 func main() {
 	//q := queue.New()
@@ -25,7 +25,7 @@ func main() {
 	//mgo.TryMongoDial()
 	//yml.LeanYml()
 	//mgo.LearnDate()
-	//gc_experiment.GcLoop()
-	sharding_server.InitDb()
-	sharding_server.Init()
+	gc_experiment.GcLoop()
+	//sharding_server.InitDb()
+	//sharding_server.Init()
 }
